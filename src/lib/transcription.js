@@ -1,39 +1,29 @@
 import axios from 'axios';
 
 /**
- * Transcribes an audio file using OpenAI's Whisper API
+ * Transcribes an audio file using our secure API proxy
  * @param {File} audioFile - The audio file to transcribe
  * @param {Function} onProgress - Progress callback function
- * @param {string} apiKey - OpenAI API key
  * @returns {Promise<string>} - The transcription text
  */
-export async function transcribeAudio(audioFile, onProgress = () => {}, apiKey) {
+export async function transcribeAudio(audioFile, onProgress = () => {}) {
   try {
-    // Check for API key
-    if (!apiKey) {
-      throw new Error('OpenAI API key is missing');
-    }
-    
     console.log(`Starting transcription of ${audioFile.name} (${(audioFile.size / (1024 * 1024)).toFixed(2)}MB)`);
     
     // Create a FormData object to send the file
     const formData = new FormData();
     formData.append('file', audioFile);
-    formData.append('model', 'whisper-1');
-    formData.append('response_format', 'verbose_json');
-    formData.append('timestamp_granularities', 'segment');
     
     if (onProgress) onProgress(20); // Starting API request
     
-    console.log('Sending request to Whisper API...');
+    console.log('Sending request to transcription API...');
     
-    // Make the API request
+    // Make the API request to our secure serverless function
     const response = await axios.post(
-      'https://api.openai.com/v1/audio/transcriptions', 
+      '/api/transcribe', 
       formData,
       {
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'multipart/form-data',
         },
         onUploadProgress: (progressEvent) => {

@@ -13,7 +13,8 @@
     "axios": "^1.6.0",
     "@ffmpeg/ffmpeg": "^0.12.7",
     "@ffmpeg/core": "^0.12.6",
-    "@ffmpeg/util": "^0.12.1"
+    "@ffmpeg/util": "^0.12.1",
+    "formidable": "^3.5.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.0",

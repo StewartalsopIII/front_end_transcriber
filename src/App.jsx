@@ -295,13 +295,6 @@ function App() {
     setProcessingStage('Preparing...');
     
     try {
-      // Get API key from env variable
-      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-      
-      if (!apiKey) {
-        throw new Error('OpenAI API key is missing. Please add your API key to the .env file.');
-      }
-      
       // Compress the audio if it's large
       let audioFile = file;
       
@@ -324,21 +317,17 @@ function App() {
       // Create FormData for the API request
       const formData = new FormData();
       formData.append('file', audioFile);
-      formData.append('model', 'whisper-1');
-      formData.append('response_format', 'verbose_json');
-      formData.append('timestamp_granularities', 'segment');
       
       setProgress(85);
-      setProcessingStage('Sending to Whisper API...');
+      setProcessingStage('Sending to transcription API...');
       console.log(`Sending file to API: ${audioFile.name} (${(audioFile.size / (1024 * 1024)).toFixed(2)}MB)`);
       
-      // Send request to OpenAI API
+      // Send request to our secure API route
       const response = await axios.post(
-        'https://api.openai.com/v1/audio/transcriptions',
+        '/api/transcribe',
         formData,
         {
           headers: {
-            'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'multipart/form-data',
           },
         }
