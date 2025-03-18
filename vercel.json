@@ -5,7 +5,7 @@
   "outputDirectory": "dist",
   "functions": {
     "api/transcribe.js": {
-      "memory": 3008,
+      "memory": 1024,
       "maxDuration": 60
     }
   },

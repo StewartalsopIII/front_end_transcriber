@@ -38,12 +38,25 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 ## Deployment to Vercel
 
-This app is ready for secure deployment on Vercel:
+This app has two deployment options:
+
+### Option 1: Server-side Processing (Vercel Pro)
+For full server-side API key protection (recommended for production):
 
 1. Fork or clone this repository to your GitHub account
 2. Create a new project on Vercel and connect to your GitHub repository
 3. Set the environment variable `OPENAI_API_KEY` in the Vercel project settings
-4. Deploy!
+4. For files >50MB, upgrade to Vercel Pro plan for increased function limits
+5. Deploy!
+
+### Option 2: Hybrid Processing (Free Plan Compatible)
+For the Hobby/free plan with client-side fallback:
+
+1. Fork or clone this repository to your GitHub account
+2. Create a new project on Vercel and connect to your GitHub repository
+3. Set the environment variable `OPENAI_API_KEY` in the Vercel project settings
+4. Deploy
+5. For large files that exceed Vercel's free tier limits, the app will prompt users to enter their own OpenAI API key for direct processing
 
 ### Vercel Environment Variables
 
@@ -51,7 +64,7 @@ This app is ready for secure deployment on Vercel:
 |------|-------------|
 | `OPENAI_API_KEY` | Your OpenAI API key (required) |
 
-The application uses Vercel serverless functions to securely process transcription requests, ensuring your API key is never exposed to clients.
+The application attempts secure server-side processing first, with an optional client-side fallback for large files.
 
 ## Usage
 

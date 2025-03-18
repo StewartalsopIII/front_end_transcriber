@@ -285,6 +285,48 @@ function App() {
     return createWavBlob(buffer.getChannelData(0), buffer.sampleRate, bitDepth, volumeScale);
   }
   
+  // New function to handle direct transcription to OpenAI (bypassing server for simplicity)
+  const handleDirectTranscribe = async (audioFile) => {
+    try {
+      // Add Whisper API key from environment variable for development only
+      // WARNING: This is not secure for production and API keys should never be exposed to the client
+      // This is meant for local development only or as a fallback if server-side processing fails
+      const apiKey = prompt("Enter your OpenAI API key (it will not be stored):");
+      
+      if (!apiKey) {
+        throw new Error("API key is required for direct transcription");
+      }
+      
+      // Create FormData for the API request
+      const formData = new FormData();
+      formData.append('file', audioFile);
+      formData.append('model', 'whisper-1');
+      formData.append('response_format', 'verbose_json');
+      formData.append('timestamp_granularities', 'segment');
+      
+      setProgress(85);
+      setProcessingStage('Sending to OpenAI API (direct)...');
+      console.log(`Direct API call: ${audioFile.name} (${(audioFile.size / (1024 * 1024)).toFixed(2)}MB)`);
+      
+      // Send request directly to OpenAI API
+      const response = await axios.post(
+        'https://api.openai.com/v1/audio/transcriptions',
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error('Direct API call failed:', error);
+      throw error;
+    }
+  }
+  
   const handleTranscribe = async () => {
     if (!file) return;
     
@@ -322,22 +364,31 @@ function App() {
       setProcessingStage('Sending to transcription API...');
       console.log(`Sending file to API: ${audioFile.name} (${(audioFile.size / (1024 * 1024)).toFixed(2)}MB)`);
       
-      // Send request to our secure API route
-      const response = await axios.post(
-        '/api/transcribe',
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
+      let result;
+      
+      try {
+        // First try the server-side API route
+        const response = await axios.post('/api/transcribe', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 120000, // 2 minute timeout
+        });
+        result = response.data;
+      } catch (apiError) {
+        console.error('Server API route failed:', apiError);
+        setProcessingStage('Server API failed, trying direct method...');
+        
+        if (confirm('Server-side transcription failed. Would you like to try direct transcription with your OpenAI API key? (Your key will not be stored)')) {
+          // Fall back to direct API call if the server route fails
+          result = await handleDirectTranscribe(audioFile);
+        } else {
+          throw new Error('Server transcription failed. You can try again or use a smaller file.');
         }
-      );
+      }
       
       setProgress(95);
       setProcessingStage('Processing transcription...');
       
       // Format the transcription with timestamps
-      const result = response.data;
       if (!result || !result.segments) {
         throw new Error('Invalid response from Whisper API');
       }
@@ -365,9 +416,9 @@ function App() {
       
       // Display user-friendly error message
       if (error.response) {
-        // OpenAI API error
+        // API error
         const message = error.response.data?.error?.message || 'API returned an error';
-        setError(`Whisper API error: ${message}`);
+        setError(`API error: ${message}`);
       } else {
         setError(error.message || 'Failed to transcribe audio');
       }
@@ -591,6 +642,15 @@ function App() {
             </pre>
           </div>
         )}
+      </div>
+      
+      <div style={{ 
+        marginTop: '2rem', 
+        fontSize: '0.875rem', 
+        color: '#6b7280',
+        textAlign: 'center'
+      }}>
+        <p>Tip: If server-side processing fails due to file size limits on Vercel's free plan, you'll be prompted to enter your OpenAI API key for direct transcription.</p>
       </div>
     </div>
   );
