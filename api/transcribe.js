@@ -1,67 +1,79 @@
 // api/transcribe.js
-import axios from 'axios';
-import formidable from 'formidable';
-import { Buffer } from 'buffer';
-import { createReadStream } from 'fs';
 
-export default async function handler(req, res) {
+// This is a Vercel Edge Function that can handle larger payloads
+export const config = {
+  runtime: 'edge',
+};
+
+export default async function handler(req) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   try {
-    const form = new formidable.IncomingForm();
-    form.parse(req, async (err, fields, files) => {
-      if (err) {
-        return res.status(500).json({ error: 'Error parsing form data' });
-      }
+    const formData = await req.formData();
+    const file = formData.get('file');
+    
+    if (!file) {
+      return new Response(JSON.stringify({ error: 'No audio file provided' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
-      const audioFile = files.file;
-      if (!audioFile) {
-        return res.status(400).json({ error: 'No audio file provided' });
-      }
+    // Get the API key from environment variables on the server
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: 'API key not configured' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
-      // Get the API key from environment variables on the server
-      const apiKey = process.env.OPENAI_API_KEY;
-      if (!apiKey) {
-        return res.status(500).json({ error: 'API key not configured' });
-      }
+    // Create a new FormData object for the OpenAI API request
+    const openAIFormData = new FormData();
+    openAIFormData.append('file', file);
+    openAIFormData.append('model', 'whisper-1');
+    openAIFormData.append('response_format', 'verbose_json');
+    openAIFormData.append('timestamp_granularities', 'segment');
 
-      try {
-        const response = await axios.post(
-          'https://api.openai.com/v1/audio/transcriptions',
-          {
-            file: createReadStream(audioFile.filepath),
-            model: 'whisper-1',
-            response_format: 'verbose_json',
-            timestamp_granularities: ['segment']
-          },
-          {
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'multipart/form-data'
-            },
-            maxBodyLength: Infinity
-          }
-        );
+    // Send request to OpenAI API
+    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: openAIFormData
+    });
 
-        return res.status(200).json(response.data);
-      } catch (error) {
-        console.error('OpenAI API error:', error.response?.data || error.message);
-        return res.status(error.response?.status || 500).json({
-          error: 'Error from OpenAI API',
-          details: error.response?.data || error.message
-        });
-      }
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('OpenAI API error:', errorData);
+      return new Response(JSON.stringify({
+        error: 'Error from OpenAI API',
+        details: errorData
+      }), {
+        status: response.status,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const data = await response.json();
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     console.error('Server error:', error);
-    return res.status(500).json({ error: 'Server error', details: error.message });
+    return new Response(JSON.stringify({
+      error: 'Server error',
+      details: error.message
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
